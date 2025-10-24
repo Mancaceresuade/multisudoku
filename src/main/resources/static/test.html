@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Multisudoku</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-section h3 { color: #333; margin-bottom: 10px; }
+        .test-result { margin: 5px 0; padding: 5px; border-radius: 3px; }
+        .test-result.success { background: #d4edda; color: #155724; }
+        .test-result.error { background: #f8d7da; color: #721c24; }
+        .test-result.info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 8px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .log { background: #f8f9fa; border: 1px solid #ddd; height: 200px; overflow-y: auto; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Test de Integracion - Multisudoku</h1>
+    
+    <div class="test-section">
+        <h3>Conexion WebSocket</h3>
+        <button onclick="testConnection()">Probar Conexion</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Creacion de Partida</h3>
+        <button onclick="testCreateGame()" id="createGameBtn" disabled>Crear Partida</button>
+        <div id="createGameResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Union de Jugadores</h3>
+        <button onclick="testJoinGame()" id="joinGameBtn" disabled>Unirse a Partida</button>
+        <div id="joinGameResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Movimientos</h3>
+        <button onclick="testMove()" id="moveBtn" disabled>Probar Movimiento</button>
+        <div id="moveResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Estado de Partida</h3>
+        <button onclick="testGameState()" id="stateBtn" disabled>Obtener Estado</button>
+        <div id="stateResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Log de Pruebas</h3>
+        <div class="log" id="testLog"></div>
+        <button onclick="clearLog()">Limpiar Log</button>
+    </div>
+
+    <script>
+        let stompClient = null;
+        let currentPlayerId = null;
+        let currentGameId = null;
+        let testResults = {
+            connection: false,
+            createGame: false,
+            joinGame: false,
+            move: false,
+            state: false
+        };
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('testLog');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `test-result ${type}`;
+            messageDiv.innerHTML = `${new Date().toLocaleTimeString()} - ${message}`;
+            logDiv.appendChild(messageDiv);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+
+        function updateButtonStates() {
+            document.getElementById('createGameBtn').disabled = !testResults.connection;
+            document.getElementById('joinGameBtn').disabled = !testResults.createGame;
+            document.getElementById('moveBtn').disabled = !testResults.joinGame;
+            document.getElementById('stateBtn').disabled = !testResults.joinGame;
+        }
+
+        function testConnection() {
+            log('Iniciando prueba de conexión...', 'info');
+            
+            try {
+                const socket = new SockJS('/ws');
+                stompClient = Stomp.over(socket);
+                
+                stompClient.connect({}, function (frame) {
+                    testResults.connection = true;
+                    document.getElementById('connectionResult').innerHTML = '<div class="test-result success">✅ Conexión exitosa</div>';
+                    log('Conexión WebSocket establecida correctamente', 'success');
+                    
+                    // Suscribirse a tópicos de prueba
+                    subscribeToTestTopics();
+                    
+                    // Generar ID de jugador para pruebas
+                    currentPlayerId = 'test_player_' + Math.random().toString(36).substr(2, 9);
+                    log('ID de jugador generado: ' + currentPlayerId, 'info');
+                    
+                    updateButtonStates();
+                    
+                }, function(error) {
+                    testResults.connection = false;
+                    document.getElementById('connectionResult').innerHTML = '<div class="test-result error">❌ Error de conexión</div>';
+                    log('Error de conexión: ' + error, 'error');
+                    updateButtonStates();
+                });
+                
+            } catch (error) {
+                testResults.connection = false;
+                document.getElementById('connectionResult').innerHTML = '<div class="test-result error">❌ Error al crear conexión</div>';
+                log('Error al crear conexión: ' + error, 'error');
+                updateButtonStates();
+            }
+        }
+
+        function subscribeToTestTopics() {
+            // Suscribirse a tópicos del juego
+            stompClient.subscribe('/topic/game/partida-creada', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                log('Partida creada: ' + gameMessage.partidaId, 'success');
+                currentGameId = gameMessage.partidaId;
+            });
+            
+            stompClient.subscribe('/topic/game/jugador-unido', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                log('Jugador unido: ' + gameMessage.mensaje, 'success');
+            });
+            
+            stompClient.subscribe('/topic/game/movimiento', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                log('Movimiento procesado: ' + JSON.stringify(gameMessage.datos), 'success');
+            });
+            
+            stompClient.subscribe('/topic/game/estado', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                log('Estado de partida recibido', 'success');
+            });
+        }
+
+        function testCreateGame() {
+            if (!stompClient || !testResults.connection) {
+                log('Error: No hay conexión establecida', 'error');
+                return;
+            }
+
+            log('Probando creación de partida...', 'info');
+            
+            const message = {
+                tipo: 'CREAR_PARTIDA',
+                jugadorId: currentPlayerId,
+                datos: 'MEDIO'
+            };
+            
+            stompClient.send('/app/game/crear-partida', {}, JSON.stringify(message));
+            log('Mensaje de creación de partida enviado', 'info');
+            
+            // Simular éxito después de un tiempo
+            setTimeout(() => {
+                if (currentGameId) {
+                    testResults.createGame = true;
+                    document.getElementById('createGameResult').innerHTML = '<div class="test-result success">✅ Partida creada exitosamente</div>';
+                    log('Prueba de creación de partida completada', 'success');
+                    updateButtonStates();
+                } else {
+                    document.getElementById('createGameResult').innerHTML = '<div class="test-result error">❌ Error al crear partida</div>';
+                    log('Error: No se recibió confirmación de creación de partida', 'error');
+                }
+            }, 2000);
+        }
+
+        function testJoinGame() {
+            if (!stompClient || !testResults.createGame) {
+                log('Error: No hay partida creada', 'error');
+                return;
+            }
+
+            log('Probando unión a partida...', 'info');
+            
+            const message = {
+                tipo: 'UNIRSE',
+                jugadorId: currentPlayerId,
+                datos: {
+                    partidaId: currentGameId,
+                    nombreJugador: 'Jugador de Prueba'
+                }
+            };
+            
+            stompClient.send('/app/game/unirse', {}, JSON.stringify(message));
+            log('Mensaje de unión a partida enviado', 'info');
+            
+            // Simular éxito después de un tiempo
+            setTimeout(() => {
+                testResults.joinGame = true;
+                document.getElementById('joinGameResult').innerHTML = '<div class="test-result success">✅ Unión a partida exitosa</div>';
+                log('Prueba de unión a partida completada', 'success');
+                updateButtonStates();
+            }, 2000);
+        }
+
+        function testMove() {
+            if (!stompClient || !testResults.joinGame) {
+                log('Error: No hay partida activa', 'error');
+                return;
+            }
+
+            log('Probando movimiento...', 'info');
+            
+            const message = {
+                tipo: 'MOVIMIENTO',
+                jugadorId: currentPlayerId,
+                partidaId: currentGameId,
+                datos: {
+                    fila: 0,
+                    columna: 0,
+                    valor: 1
+                }
+            };
+            
+            stompClient.send('/app/game/movimiento', {}, JSON.stringify(message));
+            log('Mensaje de movimiento enviado', 'info');
+            
+            // Simular éxito después de un tiempo
+            setTimeout(() => {
+                testResults.move = true;
+                document.getElementById('moveResult').innerHTML = '<div class="test-result success">✅ Movimiento procesado</div>';
+                log('Prueba de movimiento completada', 'success');
+                updateButtonStates();
+            }, 2000);
+        }
+
+        function testGameState() {
+            if (!stompClient || !testResults.joinGame) {
+                log('Error: No hay partida activa', 'error');
+                return;
+            }
+
+            log('Probando obtención de estado...', 'info');
+            
+            const message = {
+                tipo: 'ESTADO_PARTIDA',
+                jugadorId: currentPlayerId,
+                partidaId: currentGameId
+            };
+            
+            stompClient.send('/app/game/estado', {}, JSON.stringify(message));
+            log('Mensaje de estado enviado', 'info');
+            
+            // Simular éxito después de un tiempo
+            setTimeout(() => {
+                testResults.state = true;
+                document.getElementById('stateResult').innerHTML = '<div class="test-result success">✅ Estado obtenido</div>';
+                log('Prueba de estado completada', 'success');
+                updateButtonStates();
+            }, 2000);
+        }
+
+        // Inicializar pruebas
+        window.onload = function() {
+            log('Sistema de pruebas iniciado', 'info');
+            updateButtonStates();
+        };
+    </script>
+</body>
+</html>

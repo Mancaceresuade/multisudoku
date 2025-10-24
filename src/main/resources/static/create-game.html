@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crear Partida - Multisudoku</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s ease;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .btn:hover {
+            background: #45a049;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .game-info {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .game-info h3 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+
+        .game-id {
+            background: white;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+
+        .copy-btn:hover {
+            background: #45a049;
+        }
+
+        .players-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .player-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .player-item:last-child {
+            border-bottom: none;
+        }
+
+        .player-name {
+            font-weight: bold;
+        }
+
+        .player-status {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .instructions h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>Multisudoku</h1>
+                <p>Creador de Partidas</p>
+            </div>
+
+            <div class="status disconnected" id="connectionStatus">
+                Desconectado
+            </div>
+
+            <div class="form-group">
+                <label for="playerName">Tu Nombre:</label>
+                <input type="text" id="playerName" placeholder="Ingresa tu nombre" />
+            </div>
+
+            <div class="form-group">
+                <label for="difficulty">Dificultad:</label>
+                <select id="difficulty">
+                    <option value="FACIL">Facil</option>
+                    <option value="MEDIO" selected>Medio</option>
+                    <option value="DIFICIL">Dificil</option>
+                </select>
+            </div>
+
+            <button class="btn" onclick="createGame()" id="createGameBtn">Crear Partida</button>
+            <button class="btn btn-secondary" onclick="goToGame()" id="goToGameBtn" disabled>Ir al Juego</button>
+
+            <div class="game-info" id="gameInfo">
+                <h3>Partida Creada Exitosamente!</h3>
+                <div class="game-id" id="gameId"></div>
+                <button class="copy-btn" onclick="copyGameId()">Copiar ID</button>
+                <button class="copy-btn" onclick="shareGameId()">Compartir ID</button>
+                
+                <div class="players-list" id="playersList">
+                    <h4>Jugadores Conectados:</h4>
+                    <div id="playersContainer">
+                        <p>Esperando jugadores...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h4>Instrucciones:</h4>
+                <ul>
+                    <li>Ingresa tu nombre y selecciona la dificultad</li>
+                    <li>Haz clic en "Crear Partida"</li>
+                    <li>Copia el ID de la partida y compártelo con otros jugadores</li>
+                    <li>Haz clic en "Ir al Juego" cuando estés listo</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stompClient = null;
+        let currentPlayerId = null;
+        let currentGameId = null;
+
+        // Inicializar
+        function init() {
+            currentPlayerId = generatePlayerId();
+            connect();
+        }
+
+        // Generar ID único para el jugador
+        function generatePlayerId() {
+            return 'player_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Conectar WebSocket
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            
+            stompClient.connect({}, function (frame) {
+                updateConnectionStatus(true);
+                
+                // Suscribirse a tópicos
+                subscribeToTopics();
+                
+            }, function(error) {
+                updateConnectionStatus(false);
+            });
+        }
+
+        // Actualizar estado de conexión
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = 'Conectado';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = 'Desconectado';
+            }
+        }
+
+        // Suscribirse a tópicos
+        function subscribeToTopics() {
+            stompClient.subscribe('/topic/game/partida-creada', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                handleGameCreated(gameMessage);
+            });
+            
+            stompClient.subscribe('/topic/game/jugador-unido', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                handlePlayerJoined(gameMessage);
+            });
+        }
+
+        // Manejar creación de partida
+        function handleGameCreated(message) {
+            if (message.partidaId) {
+                currentGameId = message.partidaId;
+                showGameInfo(message.partidaId);
+                document.getElementById('goToGameBtn').disabled = false;
+                
+                // Si hay datos de la partida, actualizar la lista de jugadores
+                if (message.datos) {
+                    updatePlayersList(message.datos.jugadores, message.datos.puntuaciones);
+                }
+            }
+        }
+
+        // Manejar jugador unido
+        function handlePlayerJoined(message) {
+            // Actualizar lista de jugadores si hay datos
+            if (message.datos && message.datos.jugadores) {
+                updatePlayersList(message.datos.jugadores, message.datos.puntuaciones);
+            }
+        }
+
+        // Mostrar información de la partida
+        function showGameInfo(gameId) {
+            const gameInfoDiv = document.getElementById('gameInfo');
+            const gameIdSpan = document.getElementById('gameId');
+            
+            gameIdSpan.textContent = gameId;
+            gameInfoDiv.style.display = 'block';
+        }
+
+        // Crear partida
+        function createGame() {
+            const playerName = document.getElementById('playerName').value;
+            const difficulty = document.getElementById('difficulty').value;
+            
+            if (!playerName) {
+                alert('Por favor ingresa tu nombre');
+                return;
+            }
+            
+            if (stompClient) {
+                const message = {
+                    tipo: 'CREAR_PARTIDA',
+                    jugadorId: currentPlayerId,
+                    datos: difficulty
+                };
+                
+                stompClient.send('/app/game/crear-partida', {}, JSON.stringify(message));
+            }
+        }
+
+        // Copiar ID de la partida
+        function copyGameId() {
+            const gameId = document.getElementById('gameId').textContent;
+            if (gameId) {
+                navigator.clipboard.writeText(gameId).then(function() {
+                    alert('ID de partida copiado al portapapeles: ' + gameId);
+                }).catch(function(err) {
+                    // Fallback
+                    const textArea = document.createElement('textarea');
+                    textArea.value = gameId;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('ID de partida copiado al portapapeles: ' + gameId);
+                });
+            }
+        }
+
+        // Compartir ID de la partida
+        function shareGameId() {
+            const gameId = document.getElementById('gameId').textContent;
+            if (gameId) {
+                const shareText = `¡Únete a mi partida de Multisudoku!\n\nID de partida: ${gameId}\n\nVe a: ${window.location.origin}/join-game.html`;
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Multisudoku - Partida Multijugador',
+                        text: shareText
+                    });
+                } else {
+                    navigator.clipboard.writeText(shareText).then(function() {
+                        alert('Mensaje de compartir copiado al portapapeles');
+                    });
+                }
+            }
+        }
+
+        // Ir al juego
+        function goToGame() {
+            if (currentGameId) {
+                // Guardar información en localStorage
+                localStorage.setItem('playerId', currentPlayerId);
+                localStorage.setItem('gameId', currentGameId);
+                localStorage.setItem('playerName', document.getElementById('playerName').value);
+                
+                // Redirigir al juego
+                window.location.href = '/game.html';
+            }
+        }
+
+        // Actualizar lista de jugadores
+        function updatePlayersList(players, scores) {
+            const playersContainer = document.getElementById('playersContainer');
+            
+            if (!players || Object.keys(players).length === 0) {
+                playersContainer.innerHTML = '<p>Esperando jugadores...</p>';
+                return;
+            }
+            
+            playersContainer.innerHTML = '';
+            
+            Object.keys(players).forEach(playerId => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-item';
+                playerDiv.innerHTML = `
+                    <span class="player-name">${players[playerId]}</span>
+                    <span class="player-status">${scores && scores[playerId] ? scores[playerId] + ' pts' : '0 pts'}</span>
+                `;
+                playersContainer.appendChild(playerDiv);
+            });
+        }
+
+        // Inicializar al cargar la página
+        window.onload = function() {
+            init();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multisudoku - Juego</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .game-board {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .number-pad-above {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .number-pad-above h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.2em;
+        }
+
+        .number-pad-above .number-pad {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .number-pad-above .number-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .number-pad-above .number-btn:hover {
+            background: #f0f0f0;
+            border-color: #4CAF50;
+        }
+
+        .number-pad-above .number-btn.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 2px;
+            max-width: 450px;
+            margin: 0 auto;
+            border: 3px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .sudoku-cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .sudoku-cell:hover {
+            background: #f0f0f0;
+        }
+
+        .sudoku-cell.selected {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .sudoku-cell.initial {
+            background: #e0e0e0;
+            font-weight: bold;
+            cursor: not-allowed;
+        }
+
+        .sudoku-cell.error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .sudoku-cell.correct {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .sudoku-cell.user-input {
+            background: #fff3cd;
+            color: #856404;
+            font-weight: bold;
+        }
+
+        /* Subgrid borders */
+        .sudoku-cell:nth-child(3n) {
+            border-right: 2px solid #333;
+        }
+
+        .sudoku-cell:nth-child(n+19):nth-child(-n+27),
+        .sudoku-cell:nth-child(n+46):nth-child(-n+54) {
+            border-bottom: 2px solid #333;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+        }
+
+        .control-section h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+           候选人-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #45a049;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #f44336;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .scoreboard {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .scoreboard h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .player-score {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .player-score:last-child {
+            border-bottom: none;
+        }
+
+        .game-messages {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .message {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .message.movement {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .game-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .sudoku-cell {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Multisudoku</h1>
+            <p>Juego Multijugador en Tiempo Real</p>
+        </div>
+
+        <div class="game-layout">
+            <div class="game-board">
+                <div class="number-pad-above">
+                    <h3>Selecciona un numero:</h3>
+                    <div class="number-pad">
+                        <button class="number-btn" onclick="selectNumber(1)">1</button>
+                        <button class="number-btn" onclick="selectNumber(2)">2</button>
+                        <button class="number-btn" onclick="selectNumber(3)">3</button>
+                        <button class="number-btn" onclick="selectNumber(4)">4</button>
+                        <button class="number-btn" onclick="selectNumber(5)">5</button>
+                        <button class="number-btn" onclick="selectNumber(6)">6</button>
+                        <button class="number-btn" onclick="selectNumber(7)">7</button>
+                        <button class="number-btn" onclick="selectNumber(8)">8</button>
+                        <button class="number-btn" onclick="selectNumber(9)">9</button>
+                    </div>
+                </div>
+                <div class="sudoku-grid" id="sudokuGrid"></div>
+            </div>
+
+            <div class="controls">
+                <div class="control-section">
+                    <h3>Estado de Conexion</h3>
+                    <div class="status disconnected" id="connectionStatus">
+                        Desconectado
+                    </div>
+                    <button class="btn btn-danger" onclick="disconnect()">Desconectar</button>
+                </div>
+
+                <div class="control-section">
+                    <h3>Informacion de la Partida</h3>
+                    <div id="gameInfo">
+                        <p><strong>Jugador:</strong> <span id="playerName"></span></p>
+                        <p><strong>Partida:</strong> <span id="gameId"></span></p>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Puntuaciones</h3>
+                    <div class="scoreboard" id="scoreboard">
+                        <p>No hay jugadores conectados</p>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Mensajes del Juego</h3>
+                    <div class="game-messages" id="gameMessages"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let stompClient = null;
+        let currentPlayerId = null;
+        let currentGameId = null;
+        let selectedCell = null;
+        let gameBoard = null;
+        let initialCells = null;
+
+        // Inicializar el juego
+        function initGame() {
+            // Obtener información del localStorage
+            currentPlayerId = localStorage.getItem('playerId');
+            currentGameId = localStorage.getItem('gameId');
+            const playerName = localStorage.getItem('playerName');
+            
+            if (!currentPlayerId || !currentGameId || !playerName) {
+                alert('Error: No se encontró información de la partida. Por favor, crea o únete a una partida primero.');
+                window.location.href = '/create-game.html';
+                return;
+            }
+            
+            // Mostrar información
+            document.getElementById('playerName').textContent = playerName;
+            document.getElementById('gameId').textContent = currentGameId;
+            
+            // Crear el tablero de Sudoku
+            createSudokuGrid();
+            
+            // Conectar automáticamente
+            connect();
+        }
+
+        // Crear el grid de Sudoku
+        function createSudokuGrid() {
+            const grid = document.getElementById('sudokuGrid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 81; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'sudoku-cell';
+                cell.dataset.index = i;
+                cell.onclick = () => selectCell(i);
+                grid.appendChild(cell);
+            }
+        }
+
+        // Seleccionar celda
+        function selectCell(index) {
+            // Deseleccionar celda anterior
+            if (selectedCell !== null) {
+                const prevCell = document.querySelector(`[data-index="${selectedCell}"]`);
+                if (prevCell) {
+                    prevCell.classList.remove('selected');
+                }
+            }
+            
+            // Seleccionar nueva celda
+            selectedCell = index;
+            const cell = document.querySelector(`[data-index="${index}"]`);
+            if (cell && !cell.classList.contains('initial')) {
+                cell.classList.add('selected');
+            }
+        }
+
+        // Seleccionar número
+        function selectNumber(number) {
+            if (selectedCell !== null) {
+                const row = Math.floor(selectedCell / 9);
+                const col = selectedCell % 9;
+                
+                // Verificar si es una celda inicial
+                if (initialCells && initialCells[row][col] !== 0) {
+                    addMessage('No puedes modificar las celdas iniciales', 'error');
+                    return;
+                }
+                
+                // Mostrar el número inmediatamente en la celda
+                const cell = document.querySelector(`[data-index="${selectedCell}"]`);
+                if (cell) {
+                    cell.textContent = number;
+                    cell.classList.add('user-input');
+                }
+                
+                // Enviar movimiento al servidor
+                sendMove(row, col, number);
+                
+                // Deseleccionar la celda
+                selectedCell = null;
+                cell.classList.remove('selected');
+                
+                addMessage(`Numero ${number} colocado en la celda`, 'success');
+            } else {
+                addMessage('Por favor selecciona una celda primero', 'error');
+            }
+        }
+
+        // Enviar movimiento al servidor
+        function sendMove(row, col, value) {
+            if (stompClient && currentGameId) {
+                const message = {
+                    tipo: 'MOVIMIENTO',
+                    jugadorId: currentPlayerId,
+                    partidaId: currentGameId,
+                    datos: {
+                        fila: row,
+                        columna: col,
+                        valor: value
+                    }
+                };
+                
+                stompClient.send('/app/game/movimiento', {}, JSON.stringify(message));
+                addMessage(`Enviando movimiento: ${value} en (${row}, ${col})`, 'info');
+            }
+        }
+
+        // Conectar WebSocket
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            
+            stompClient.connect({}, function (frame) {
+                updateConnectionStatus(true);
+                addMessage('Conectado al servidor', 'success');
+                
+                // Suscribirse a los tópicos del juego
+                subscribeToGameTopics();
+                
+                // Solicitar el estado inicial del tablero
+                requestGameState();
+                
+            }, function(error) {
+                updateConnectionStatus(false);
+                addMessage('Error de conexion: ' + error, 'error');
+            });
+        }
+
+        // Desconectar WebSocket
+        function disconnect() {
+            if (stompClient !== null) {
+                stompClient.disconnect();
+                updateConnectionStatus(false);
+                addMessage('Desconectado del servidor', 'info');
+            }
+        }
+
+        // Solicitar estado del juego
+        function requestGameState() {
+            if (stompClient && currentGameId) {
+                const message = {
+                    tipo: 'ESTADO',
+                    jugadorId: currentPlayerId,
+                    partidaId: currentGameId
+                };
+                
+                stompClient.send('/app/game/estado', {}, JSON.stringify(message));
+                addMessage('Solicitando estado del juego...', 'info');
+            }
+        }
+
+        // Actualizar estado de conexión
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = 'Conectado';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = 'Desconectado';
+            }
+        }
+
+        // Suscribirse a tópicos del juego
+        function subscribeToGameTopics() {
+            // Suscribirse a movimientos
+            stompClient.subscribe('/topic/game/movimiento', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                handleGameMessage(gameMessage);
+            });
+            
+            // Suscribirse a estado de partida
+            stompClient.subscribe('/topic/game/estado', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                handleGameMessage(gameMessage);
+            });
+            
+            // Suscribirse a jugadores unidos
+            stompClient.subscribe('/topic/game/jugador-unido', function (message) {
+                const gameMessage = JSON.parse(message.body);
+                handleGameMessage(gameMessage);
+            });
+        }
+
+        // Manejar mensajes del juego
+        function handleGameMessage(message) {
+            switch (message.tipo) {
+                case 'MOVIMIENTO_EXITOSO':
+                    // Actualizar el tablero con el estado completo
+                    if (message.datos && message.datos.partidaDTO) {
+                        updateGameState(message.datos.partidaDTO);
+                    }
+                    addMessage(`Movimiento de ${message.datos.jugadorNombre}: ${message.datos.valor} en (${message.datos.fila}, ${message.datos.columna})`, 'movement');
+                    break;
+                    
+                case 'MOVIMIENTO_INVALIDO':
+                    addMessage('Movimiento invalido', 'error');
+                    break;
+                    
+                case 'ESTADO_PARTIDA':
+                    updateGameState(message.datos);
+                    break;
+                    
+                case 'JUGADOR_UNIDO':
+                    if (message.datos && message.datos.jugadores) {
+                        updateScoreboard(message.datos.jugadores, message.datos.puntuaciones);
+                        addMessage(`Nuevo jugador unido a la partida`, 'info');
+                    }
+                    break;
+                    
+                case 'ERROR':
+                    addMessage('Error: ' + message.mensaje, 'error');
+                    break;
+            }
+        }
+
+        // Actualizar tablero de juego
+        function updateGameBoard(movementData) {
+            if (gameBoard && movementData) {
+                const row = movementData.fila;
+                const col = movementData.columna;
+                const value = movementData.valor;
+                
+                gameBoard[row][col] = value;
+                updateSudokuDisplay();
+            }
+        }
+
+        // Actualizar estado del juego
+        function updateGameState(gameState) {
+            if (gameState) {
+                gameBoard = gameState.tablero;
+                initialCells = gameState.celdasIniciales;
+                updateSudokuDisplay();
+                updateScoreboard(gameState.jugadores, gameState.puntuaciones);
+                
+                // Log para debugging
+                console.log('Tablero actualizado:', gameBoard);
+                console.log('Celdas iniciales:', initialCells);
+            }
+        }
+
+        // Actualizar display del Sudoku
+        function updateSudokuDisplay() {
+            if (gameBoard) {
+                for (let i = 0; i < 81; i++) {
+                    const row = Math.floor(i / 9);
+                    const col = i % 9;
+                    const cell = document.querySelector(`[data-index="${i}"]`);
+                    
+                    if (cell) {
+                        const value = gameBoard[row][col];
+                        cell.textContent = value === 0 ? '' : value;
+                        
+                        // Marcar celdas iniciales
+                        if (initialCells && initialCells[row] && initialCells[row][col] !== 0) {
+                            cell.classList.add('initial');
+                            cell.classList.remove('user-input');
+                        } else {
+                            cell.classList.remove('initial');
+                            if (value !== 0) {
+                                cell.classList.add('user-input');
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Actualizar marcador de puntuaciones
+        function updateScoreboard(players, scores) {
+            const scoreboard = document.getElementById('scoreboard');
+            scoreboard.innerHTML = '<h4>Puntuaciones</h4>';
+            
+            if (players && scores) {
+                Object.keys(players).forEach(playerId => {
+                    const playerScore = document.createElement('div');
+                    playerScore.className = 'player-score';
+                    playerScore.innerHTML = `
+                        <span>${players[playerId]}</span>
+                        <span>${scores[playerId] || 0} pts</span>
+                    `;
+                    scoreboard.appendChild(playerScore);
+                });
+            }
+        }
+
+        // Agregar mensaje al log
+        function addMessage(text, type = 'info') {
+            const messagesDiv = document.getElementById('gameMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${type}`;
+            messageElement.innerHTML = `${new Date().toLocaleTimeString()} - ${text}`;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Inicializar el juego al cargar la página
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
