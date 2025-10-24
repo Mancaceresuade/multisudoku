@@ -22,7 +22,7 @@ public class Partida {
         this.fechaInicio = LocalDateTime.now();
         this.activa = true;
         this.estado = "ESPERANDO";
-        this.maxJugadores = 4; // Máximo 4 jugadores por partida
+        this.maxJugadores = Integer.MAX_VALUE; // Sin límite de jugadores
     }
 
     public Partida(String id, Tablero tablero) {
@@ -33,7 +33,7 @@ public class Partida {
 
     // Métodos para manejar jugadores
     public boolean agregarJugador(Jugador jugador) {
-        if (jugadores.size() < maxJugadores && !jugadores.containsKey(jugador.getId())) {
+        if (!jugadores.containsKey(jugador.getId())) {
             jugadores.put(jugador.getId(), jugador);
             puntuaciones.put(jugador.getId(), 0);
             
@@ -255,7 +255,7 @@ public class Partida {
     }
 
     public boolean tieneEspacio() {
-        return jugadores.size() < maxJugadores;
+        return true; // Sin límite de jugadores
     }
 
     @Override
