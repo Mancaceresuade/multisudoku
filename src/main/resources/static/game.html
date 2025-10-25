@@ -646,12 +646,29 @@
             scoreboard.innerHTML = '<h4>Puntuaciones</h4>';
             
             if (players && scores) {
-                Object.keys(players).forEach(playerId => {
+                // Crear array de jugadores con sus puntuaciones y ordenar por puntuación (mayor a menor)
+                const playersArray = Object.keys(players).map(playerId => ({
+                    id: playerId,
+                    name: players[playerId],
+                    score: scores[playerId] || 0
+                }));
+                
+                // Ordenar por puntuación descendente
+                playersArray.sort((a, b) => b.score - a.score);
+                
+                // Mostrar jugadores ordenados
+                playersArray.forEach((player, index) => {
                     const playerScore = document.createElement('div');
                     playerScore.className = 'player-score';
+                    
+                    // Agregar clase especial para el primer lugar
+                    if (index === 0 && player.score > 0) {
+                        playerScore.classList.add('first-place');
+                    }
+                    
                     playerScore.innerHTML = `
-                        <span>${players[playerId]}</span>
-                        <span>${scores[playerId] || 0} pts</span>
+                        <span>${player.name}</span>
+                        <span>${player.score} pts</span>
                     `;
                     scoreboard.appendChild(playerScore);
                 });

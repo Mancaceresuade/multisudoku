@@ -447,12 +447,29 @@
             
             playersContainer.innerHTML = '';
             
-            Object.keys(players).forEach(playerId => {
+            // Crear array de jugadores con sus puntuaciones y ordenar por puntuación (mayor a menor)
+            const playersArray = Object.keys(players).map(playerId => ({
+                id: playerId,
+                name: players[playerId],
+                score: scores && scores[playerId] ? scores[playerId] : 0
+            }));
+            
+            // Ordenar por puntuación descendente
+            playersArray.sort((a, b) => b.score - a.score);
+            
+            // Mostrar jugadores ordenados
+            playersArray.forEach((player, index) => {
                 const playerDiv = document.createElement('div');
                 playerDiv.className = 'player-item';
+                
+                // Agregar clase especial para el primer lugar
+                if (index === 0 && player.score > 0) {
+                    playerDiv.classList.add('first-place');
+                }
+                
                 playerDiv.innerHTML = `
-                    <span class="player-name">${players[playerId]}</span>
-                    <span class="player-status">${scores && scores[playerId] ? scores[playerId] + ' pts' : '0 pts'}</span>
+                    <span class="player-name">${player.name}</span>
+                    <span class="player-status">${player.score} pts</span>
                 `;
                 playersContainer.appendChild(playerDiv);
             });
