@@ -118,9 +118,27 @@ public class WebSocketController {
                 respuesta.setMensaje("Movimiento procesado exitosamente");
                 return respuesta;
             } else {
-                GameMessage error = new GameMessage("MOVIMIENTO_INVALIDO", message.getJugadorId(), message.getPartidaId(), null);
-                error.setMensaje("Movimiento inválido");
-                return error;
+                // Crear MovimientoDTO para movimiento inválido
+                Partida partida = gameService.obtenerPartida(message.getPartidaId());
+                Jugador jugador = partida.getJugadores().get(message.getJugadorId());
+                
+                MovimientoDTO movimientoDTO = new MovimientoDTO(
+                    message.getJugadorId(),
+                    jugador.getNombre(),
+                    fila,
+                    columna,
+                    valor,
+                    false, // Movimiento inválido
+                    0 // Sin puntos
+                );
+                
+                // Incluir el estado completo del tablero en la respuesta
+                PartidaDTO partidaDTO = convertirAPartidaDTO(partida);
+                movimientoDTO.setPartidaDTO(partidaDTO);
+                
+                GameMessage respuesta = new GameMessage("MOVIMIENTO_INVALIDO", message.getJugadorId(), message.getPartidaId(), movimientoDTO);
+                respuesta.setMensaje("Movimiento inválido");
+                return respuesta;
             }
         } catch (Exception e) {
             GameMessage error = new GameMessage("ERROR", message.getJugadorId(), message.getPartidaId(), null);

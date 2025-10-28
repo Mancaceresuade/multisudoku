@@ -254,6 +254,21 @@
             border-bottom: none;
         }
 
+        .player-score.invalid-move {
+            background-color: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 5px;
+            padding: 8px;
+            margin: 2px 0;
+            animation: invalidMovePulse 0.5s ease-in-out;
+        }
+
+        @keyframes invalidMovePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
         .game-messages {
             background: #f8f9fa;
             border: 1px solid #ddd;
@@ -567,7 +582,13 @@
                     break;
                     
                 case 'MOVIMIENTO_INVALIDO':
-                    addMessage('Movimiento invalido', 'error');
+                    // Mostrar en rojo al jugador que hizo el movimiento inválido
+                    if (message.datos && message.datos.jugadorId) {
+                        highlightInvalidPlayer(message.datos.jugadorId);
+                        addMessage(`Movimiento inválido de ${message.datos.jugadorNombre}: ${message.datos.valor} en (${message.datos.fila}, ${message.datos.columna})`, 'error');
+                    } else {
+                        addMessage('Movimiento inválido', 'error');
+                    }
                     break;
                     
                 case 'ESTADO_PARTIDA':
@@ -640,6 +661,27 @@
             }
         }
 
+        // Resaltar jugador con movimiento inválido
+        function highlightInvalidPlayer(playerId) {
+            // Remover resaltado anterior de todos los jugadores
+            const scoreboard = document.getElementById('scoreboard');
+            const playerScores = scoreboard.querySelectorAll('.player-score');
+            playerScores.forEach(playerScore => {
+                playerScore.classList.remove('invalid-move');
+            });
+            
+            // Resaltar el jugador específico por su ID
+            const targetPlayer = scoreboard.querySelector(`[data-player-id="${playerId}"]`);
+            if (targetPlayer) {
+                targetPlayer.classList.add('invalid-move');
+                
+                // Quitar el resaltado después de 3 segundos
+                setTimeout(() => {
+                    targetPlayer.classList.remove('invalid-move');
+                }, 3000);
+            }
+        }
+
         // Actualizar marcador de puntuaciones
         function updateScoreboard(players, scores) {
             const scoreboard = document.getElementById('scoreboard');
@@ -660,6 +702,7 @@
                 playersArray.forEach((player, index) => {
                     const playerScore = document.createElement('div');
                     playerScore.className = 'player-score';
+                    playerScore.setAttribute('data-player-id', player.id);
                     
                     // Agregar clase especial para el primer lugar
                     if (index === 0 && player.score > 0) {
