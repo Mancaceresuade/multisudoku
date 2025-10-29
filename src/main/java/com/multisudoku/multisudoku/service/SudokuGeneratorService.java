@@ -155,29 +155,6 @@ public class SudokuGeneratorService {
 
     // Resolver tablero recursivamente
     private boolean resolverTableroRecursivo(Tablero tablero, int fila, int columna) {
-        if (fila == TAMANO) {
-            return true; // Tablero resuelto
-        }
-        
-        if (columna == TAMANO) {
-            return resolverTableroRecursivo(tablero, fila + 1, 0);
-        }
-        
-        if (tablero.getValor(fila, columna) != 0) {
-            return resolverTableroRecursivo(tablero, fila, columna + 1);
-        }
-        
-        for (int numero = 1; numero <= TAMANO; numero++) {
-            if (tablero.esMovimientoValido(fila, columna, numero)) {
-                tablero.setValor(fila, columna, numero);
-                
-                if (resolverTableroRecursivo(tablero, fila, columna + 1)) {
-                    return true;
-                }
-                
-                tablero.setValor(fila, columna, 0); // Backtrack
-            }
-        }
 
         return false;
     }
