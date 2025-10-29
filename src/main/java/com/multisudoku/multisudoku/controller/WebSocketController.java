@@ -97,8 +97,19 @@ public class WebSocketController {
             boolean exitoso = gameService.procesarMovimiento(message.getJugadorId(), fila, columna, valor);
             
             if (exitoso) {
-                Partida partida = gameService.obtenerPartida(message.getPartidaId());
+                Partida partida = gameService.obtenerPartidaPorJugador(message.getJugadorId());
+                if (partida == null) {
+                    GameMessage error = new GameMessage("ERROR", message.getJugadorId(), null, null);
+                    error.setMensaje("No se encontró la partida del jugador");
+                    return error;
+                }
+                
                 Jugador jugador = partida.getJugadores().get(message.getJugadorId());
+                if (jugador == null) {
+                    GameMessage error = new GameMessage("ERROR", message.getJugadorId(), partida.getId(), null);
+                    error.setMensaje("Jugador no encontrado en la partida");
+                    return error;
+                }
                 
                 MovimientoDTO movimientoDTO = new MovimientoDTO(
                     message.getJugadorId(),
@@ -114,13 +125,24 @@ public class WebSocketController {
                 PartidaDTO partidaDTO = convertirAPartidaDTO(partida);
                 movimientoDTO.setPartidaDTO(partidaDTO);
                 
-                GameMessage respuesta = new GameMessage("MOVIMIENTO_EXITOSO", message.getJugadorId(), message.getPartidaId(), movimientoDTO);
+                GameMessage respuesta = new GameMessage("MOVIMIENTO_EXITOSO", message.getJugadorId(), partida.getId(), movimientoDTO);
                 respuesta.setMensaje("Movimiento procesado exitosamente");
                 return respuesta;
             } else {
                 // Crear MovimientoDTO para movimiento inválido
-                Partida partida = gameService.obtenerPartida(message.getPartidaId());
+                Partida partida = gameService.obtenerPartidaPorJugador(message.getJugadorId());
+                if (partida == null) {
+                    GameMessage error = new GameMessage("ERROR", message.getJugadorId(), null, null);
+                    error.setMensaje("No se encontró la partida del jugador");
+                    return error;
+                }
+                
                 Jugador jugador = partida.getJugadores().get(message.getJugadorId());
+                if (jugador == null) {
+                    GameMessage error = new GameMessage("ERROR", message.getJugadorId(), partida.getId(), null);
+                    error.setMensaje("Jugador no encontrado en la partida");
+                    return error;
+                }
                 
                 MovimientoDTO movimientoDTO = new MovimientoDTO(
                     message.getJugadorId(),
@@ -136,7 +158,7 @@ public class WebSocketController {
                 PartidaDTO partidaDTO = convertirAPartidaDTO(partida);
                 movimientoDTO.setPartidaDTO(partidaDTO);
                 
-                GameMessage respuesta = new GameMessage("MOVIMIENTO_INVALIDO", message.getJugadorId(), message.getPartidaId(), movimientoDTO);
+                GameMessage respuesta = new GameMessage("MOVIMIENTO_INVALIDO", message.getJugadorId(), partida.getId(), movimientoDTO);
                 respuesta.setMensaje("Movimiento inválido");
                 return respuesta;
             }
