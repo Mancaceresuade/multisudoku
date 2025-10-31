@@ -86,6 +86,11 @@ public class Tablero {
             return false;
         }
 
+        // Si el valor es 0, se permite borrar la celda
+        if (valor == 0) {
+            return true;
+        }
+
         // Verificar fila
         for (int c = 0; c < TAMANO; c++) {
             if (c != columna && celdas[fila][c] == valor) {

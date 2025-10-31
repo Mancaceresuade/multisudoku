@@ -96,6 +96,18 @@
             border-color: #4CAF50;
         }
 
+        .number-pad-above .number-btn.clear-btn {
+            background: #f44336;
+            color: white;
+            border-color: #f44336;
+            width: 60px;
+        }
+
+        .number-pad-above .number-btn.clear-btn:hover {
+            background: #da190b;
+            border-color: #da190b;
+        }
+
         .sudoku-grid {
             display: grid;
             grid-template-columns: repeat(9, 1fr);
@@ -342,6 +354,7 @@
                         <button class="number-btn" onclick="selectNumber(7)">7</button>
                         <button class="number-btn" onclick="selectNumber(8)">8</button>
                         <button class="number-btn" onclick="selectNumber(9)">9</button>
+                        <button class="number-btn clear-btn" onclick="selectNumber(0)">⌫</button>
                     </div>
                 </div>
                 <div class="sudoku-grid" id="sudokuGrid"></div>
@@ -436,11 +449,13 @@
                 }
             }
             
-            // Seleccionar nueva celda
-            selectedCell = index;
+            // Seleccionar nueva celda - permitir cualquier celda que no sea inicial
             const cell = document.querySelector(`[data-index="${index}"]`);
             if (cell && !cell.classList.contains('initial')) {
+                selectedCell = index;
                 cell.classList.add('selected');
+            } else if (cell && cell.classList.contains('initial')) {
+                addMessage('No puedes modificar las celdas iniciales', 'error');
             }
         }
 
@@ -459,8 +474,14 @@
                 // Mostrar el número inmediatamente en la celda
                 const cell = document.querySelector(`[data-index="${selectedCell}"]`);
                 if (cell) {
-                    cell.textContent = number;
-                    cell.classList.add('user-input');
+                    if (number === 0) {
+                        // Borrar la celda
+                        cell.textContent = '';
+                        cell.classList.remove('user-input');
+                    } else {
+                        cell.textContent = number;
+                        cell.classList.add('user-input');
+                    }
                 }
                 
                 // Enviar movimiento al servidor
@@ -470,7 +491,11 @@
                 selectedCell = null;
                 cell.classList.remove('selected');
                 
-                addMessage(`Numero ${number} colocado en la celda`, 'success');
+                if (number === 0) {
+                    addMessage('Celda borrada', 'success');
+                } else {
+                    addMessage(`Numero ${number} colocado en la celda`, 'success');
+                }
             } else {
                 addMessage('Por favor selecciona una celda primero', 'error');
             }
