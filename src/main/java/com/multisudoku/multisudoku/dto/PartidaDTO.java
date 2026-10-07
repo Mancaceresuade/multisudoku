@@ -1,5 +1,6 @@
 package com.multisudoku.multisudoku.dto;
 
+import java.util.List;
 import java.util.Map;
 
 public class PartidaDTO {
@@ -12,7 +13,7 @@ public class PartidaDTO {
     private boolean activa;
     private int numeroJugadores;
     private int maxJugadores;
-    private String ganador;
+    private List<String> ganadores;
 
     public PartidaDTO() {}
 
@@ -89,12 +90,12 @@ public class PartidaDTO {
         this.maxJugadores = maxJugadores;
     }
 
-    public String getGanador() {
-        return ganador;
+    public List<String> getGanadores() {
+        return ganadores;
     }
 
-    public void setGanador(String ganador) {
-        this.ganador = ganador;
+    public void setGanadores(List<String> ganadores) {
+        this.ganadores = ganadores;
     }
 
     @Override
@@ -105,7 +106,7 @@ public class PartidaDTO {
                 ", numeroJugadores=" + numeroJugadores +
                 ", maxJugadores=" + maxJugadores +
                 ", activa=" + activa +
-                ", ganador='" + ganador + '\'' +
+                ", ganadores=" + ganadores +
                 '}';
     }
 }

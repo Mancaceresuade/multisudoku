@@ -205,7 +205,7 @@ public class WebSocketController {
         dto.setActiva(partida.isActiva());
         dto.setNumeroJugadores(partida.getNumeroJugadores());
         dto.setMaxJugadores(partida.getMaxJugadores());
-        dto.setGanador(partida.getGanador());
+        dto.setGanadores(partida.getGanadores());
         
         // Convertir jugadores y puntuaciones
         Map<String, String> jugadores = new HashMap<>();

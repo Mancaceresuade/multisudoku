@@ -14,7 +14,7 @@ public class Partida {
     private boolean activa;
     private String estado; // "ESPERANDO", "EN_JUEGO", "COMPLETADA", "CANCELADA"
     private int maxJugadores;
-    private String ganador;
+    private List<String> ganadores;
 
     public Partida() {
         this.jugadores = new ConcurrentHashMap<>();
@@ -102,11 +102,16 @@ public class Partida {
 
     private int calcularPuntos(Movimiento movimiento) {
         // Sistema de puntuación simple:
+        // - Borrar una celda (valor 0): descuenta 10 puntos, sin bonus
         // - Movimiento correcto: 10 puntos base
         // - Bonus por completar fila/columna/subgrid: 5 puntos adicionales
-        
+
+        if (movimiento.getValor() == 0) {
+            return -10;
+        }
+
         int puntos = 10;
-        
+
         // Verificar si se completó una fila
         if (esFilaCompleta(movimiento.getFila())) {
             puntos += 5;
@@ -162,11 +167,15 @@ public class Partida {
         activa = false;
         fechaFin = LocalDateTime.now();
         
-        // Determinar ganador
-        ganador = puntuaciones.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
+        // Determinar ganador(es): todos los jugadores empatados en la puntuación máxima
+        int puntuacionMaxima = puntuaciones.values().stream()
+                .max(Integer::compareTo)
+                .orElse(0);
+
+        ganadores = puntuaciones.entrySet().stream()
+                .filter(entry -> entry.getValue() == puntuacionMaxima)
                 .map(Map.Entry::getKey)
-                .orElse(null);
+                .collect(java.util.stream.Collectors.toList());
     }
 
     // Getters y Setters
@@ -242,12 +251,12 @@ public class Partida {
         this.maxJugadores = maxJugadores;
     }
 
-    public String getGanador() {
-        return ganador;
+    public List<String> getGanadores() {
+        return ganadores;
     }
 
-    public void setGanador(String ganador) {
-        this.ganador = ganador;
+    public void setGanadores(List<String> ganadores) {
+        this.ganadores = ganadores;
     }
 
     public int getNumeroJugadores() {
@@ -265,7 +274,7 @@ public class Partida {
                 ", estado='" + estado + '\'' +
                 ", jugadores=" + jugadores.size() + "/" + maxJugadores +
                 ", activa=" + activa +
-                ", ganador='" + ganador + '\'' +
+                ", ganadores=" + ganadores +
                 '}';
     }
 }
